@@ -1,0 +1,103 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "Jax Xie"
+date: "9 August 2015"
+output: html_document
+---
+
+##Overview
+In this project, the goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to classify what type of activities they are doing. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+We will make use of SVM to train the model in predicting the class (`classe`). To improve accuracy, we will perform a cross validation in our modeling process.
+
+##Data preparation
+```{r, echo=FALSE, results='hide'}
+setwd('/Users/kindaixin/MEGA/08 Practical Machine Learning/Project 1')
+```
+We will first read in the csv file and do a quick exploration of the data
+
+```{r, cache=TRUE}
+training <- read.csv('pml-training.csv',na.strings = c("#DIV/0!","","NA"))
+testing <- read.csv('pml-testing.csv',na.strings = c("#DIV/0!","","NA"))
+
+dim(training) #total of 19,622 rows for training with 160 columns.
+dim(testing) #total of 20 rows for testing with same 160 columns.
+```
+
+There are a number of NA for some of the data which we will impute with 0.
+
+```{r}
+training[is.na(training)] <- 0
+testing[is.na(testing)] <- 0
+```
+
+We will only use the data from the accelerometer to predict the class of activity. For that we will create a data frame that contains only `classe` and the accelerometer data.
+
+
+```{r}
+selected.cols <- c("roll_belt","pitch_belt","yaw_belt","total_accel_belt","kurtosis_roll_belt","kurtosis_picth_belt","kurtosis_yaw_belt","skewness_roll_belt","skewness_roll_belt.1","skewness_yaw_belt","max_roll_belt","max_picth_belt","max_yaw_belt","min_roll_belt","min_pitch_belt","min_yaw_belt","amplitude_roll_belt","amplitude_pitch_belt","amplitude_yaw_belt","var_total_accel_belt","avg_roll_belt","stddev_roll_belt","var_roll_belt","avg_pitch_belt","stddev_pitch_belt","var_pitch_belt","avg_yaw_belt","stddev_yaw_belt","var_yaw_belt","gyros_belt_x","gyros_belt_y","gyros_belt_z","accel_belt_x","accel_belt_y","accel_belt_z","magnet_belt_x","magnet_belt_y","magnet_belt_z","roll_arm","pitch_arm","yaw_arm","total_accel_arm","var_accel_arm","avg_roll_arm","stddev_roll_arm","var_roll_arm","avg_pitch_arm","stddev_pitch_arm","var_pitch_arm","avg_yaw_arm","stddev_yaw_arm","var_yaw_arm","gyros_arm_x","gyros_arm_y","gyros_arm_z","accel_arm_x","accel_arm_y","accel_arm_z","magnet_arm_x","magnet_arm_y","magnet_arm_z","kurtosis_roll_arm","kurtosis_picth_arm","kurtosis_yaw_arm","skewness_roll_arm","skewness_pitch_arm","skewness_yaw_arm","max_roll_arm","max_picth_arm","max_yaw_arm","min_roll_arm","min_pitch_arm","min_yaw_arm","amplitude_roll_arm","amplitude_pitch_arm","amplitude_yaw_arm","roll_dumbbell","pitch_dumbbell","yaw_dumbbell","kurtosis_roll_dumbbell","kurtosis_picth_dumbbell","kurtosis_yaw_dumbbell","skewness_roll_dumbbell","skewness_pitch_dumbbell","skewness_yaw_dumbbell","max_roll_dumbbell","max_picth_dumbbell","max_yaw_dumbbell","min_roll_dumbbell","min_pitch_dumbbell","min_yaw_dumbbell","amplitude_roll_dumbbell","amplitude_pitch_dumbbell","amplitude_yaw_dumbbell","total_accel_dumbbell","var_accel_dumbbell","avg_roll_dumbbell","stddev_roll_dumbbell","var_roll_dumbbell","avg_pitch_dumbbell","stddev_pitch_dumbbell","var_pitch_dumbbell","avg_yaw_dumbbell","stddev_yaw_dumbbell","var_yaw_dumbbell","gyros_dumbbell_x","gyros_dumbbell_y","gyros_dumbbell_z","accel_dumbbell_x","accel_dumbbell_y","accel_dumbbell_z","magnet_dumbbell_x","magnet_dumbbell_y","magnet_dumbbell_z","roll_forearm","pitch_forearm","yaw_forearm","kurtosis_roll_forearm","kurtosis_picth_forearm","kurtosis_yaw_forearm","skewness_roll_forearm","skewness_pitch_forearm","skewness_yaw_forearm","max_roll_forearm","max_picth_forearm","max_yaw_forearm","min_roll_forearm","min_pitch_forearm","min_yaw_forearm","amplitude_roll_forearm","amplitude_pitch_forearm","amplitude_yaw_forearm","total_accel_forearm","var_accel_forearm","avg_roll_forearm","stddev_roll_forearm","var_roll_forearm","avg_pitch_forearm","stddev_pitch_forearm","var_pitch_forearm","avg_yaw_forearm","stddev_yaw_forearm","var_yaw_forearm","gyros_forearm_x","gyros_forearm_y","gyros_forearm_z","accel_forearm_x","accel_forearm_y","accel_forearm_z","magnet_forearm_x","magnet_forearm_y","magnet_forearm_z","classe")
+training.subset <- training[,selected.cols]
+testing.subset <- testing[,selected.cols[-153]]#select all columns listed above except the missing 'class' column
+```
+
+
+##Modeling using Machine Learning
+Given the large number of predictors(features) available for modeling, we will use PCA to reduce the dimension before applying SVM as our training model. But first, we have to remove variables with near zero variance.
+
+```{r}
+library(caret)
+set.seed(888)
+nzv <- nearZeroVar(training.subset)
+training.subset <- training.subset[,-nzv]
+dim(training.subset)
+```
+
+After removing the near zero variance variables, we are left with only 52 (53 columns - 1 column of `classe`) predictors that we can use to predict the `classe`. We perform a PCA with threshold of 90%.
+```{r}
+preProc <- preProcess(training.subset[,-53],method="pca",thresh = 0.9)
+preProc
+```
+
+Now we further reduce the variables needed to 19 components which can explain 90% of the variance.
+To reduce the out of sample error, we do a cross-validation to select the best model using the trainControl feature in the Caret Package.
+
+```{r}
+trainPC <- predict(preProc,training.subset[,-53])
+fitControl <- trainControl(method="cv", number=3, verboseIter=F)  
+modelSVM <- train(training.subset$classe ~ ., data = trainPC,
+                 method = "svmRadial",
+                 preProc = c("center", "scale"),
+                 trControl = fitControl
+                 )
+```
+
+##Out Of Sample Error Explaination
+In our model above, we perfom a K-Fold cross-validation for our SVM model where K=3. Therefore, we have 3 different SVM model generated. In our cross-validation, the training data is partition into 3 partition. 
+
+In the first pass, the second and third partition is used to train the model while the first partition is used to validate the results, deriving the accuracy. 
+
+In the second pass, the second partition is 'hold out' for validation while the first and third is use for training. Similar process is performed on the third pass.
+
+The caret package has chosen the final model for us with the highest accuracy of 88.5% SETTING C=1.00 AND SIGMA = 0.03429126 out of the 3 models. We will use this model to predict the 20 samples
+
+```{r}
+modelSVM
+modelSVM$results
+```
+
+##Predicting the 20 samples
+In order to predict the 20 samples, we have to perform the same PCA transformation to the test data.
+
+```{r}
+testing.subset <- testing.subset[,-nzv]#remove the columns with near zero variance
+testPC <- predict(preProc,testing.subset) #under goes the same PCA process
+testResults <- predict(modelSVM,testPC)
+testingFinal <- data.frame(testing,classe = testResults ) #store the classe information into a data.frame
+```
+
+The final results can be found in `testingFinal` data frame.
+
+##Citation
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+Read more: http://groupware.les.inf.puc-rio.br/har#ixzz3iNaY0TOY
