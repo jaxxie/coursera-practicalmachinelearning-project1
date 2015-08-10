@@ -97,6 +97,20 @@ testingFinal <- data.frame(testing,classe = testResults ) #store the classe info
 
 The final results can be found in `testingFinal` data frame.
 
+##Writing to files
+Finally, we will wrtie the results to file to be used for submission.
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(testResults)
+```
+
 ##Citation
 Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
 

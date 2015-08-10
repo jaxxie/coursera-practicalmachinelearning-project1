@@ -167,6 +167,19 @@ testResults &lt;- predict(modelSVM,testPC)
 testingFinal &lt;- data.frame(testing,classe = testResults ) #store the classe information into a data.frame</code></pre>
 <p>The final results can be found in <code>testingFinal</code> data frame.</p>
 </div>
+<div id="writing-to-files" class="section level2">
+<h2>Writing to files</h2>
+<p>Finally, we will wrtie the results to file to be used for submission.</p>
+<pre class="r"><code>pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0(&quot;problem_id_&quot;,i,&quot;.txt&quot;)
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(testResults)</code></pre>
+</div>
 <div id="citation" class="section level2">
 <h2>Citation</h2>
 <p>Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human ’13) . Stuttgart, Germany: ACM SIGCHI, 2013.</p>
